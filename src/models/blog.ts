@@ -3,11 +3,32 @@ import IBlog from '../interfaces/blog';
 
 const BlogSchema: Schema = new Schema(
     {
-        title: { type: String, unique: true },
-        author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        content: { type: String, unique: true },
-        headline: { type: String, unique: true },
-        picture: { type: String }
+        title: { 
+            type: String,
+            unique: true,
+            required: true,
+        },
+        content: { 
+            type: String,
+            unique: true,
+            required: true,
+        },
+        tags: {
+            type: Array,
+            default: [],
+        },
+        author: { 
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        imageUrl: { 
+            type: String
+        },
+        viewsCount: {
+            type: Number,
+            default: 0,
+        }
     },
     {
         timestamps: true

@@ -1,20 +1,20 @@
 import { NextFunction, Request, Response } from 'express';
 import logging from '../config/logging';
-import Blog from '../models/blog';
+import BlogModel from '../models/blog';
 import mongoose from 'mongoose';
 
 const create = (req: Request, res: Response, next: NextFunction) => {
     logging.info('Attempting to create blog ...');
 
-    let { author, title, content, headline, picture } = req.body;
+    let { author, title, tags, content, imageUrl } = req.body;
 
-    const blog = new Blog({
+    const blog = new BlogModel({
         _id: new mongoose.Types.ObjectId(),
-        author,
         title,
+        tags,
         content,
-        headline,
-        picture
+        author,
+        imageUrl
     });
 
     return blog
@@ -34,10 +34,19 @@ const create = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const read = (req: Request, res: Response, next: NextFunction) => {
-    const _id = req.params.blogID;
+    const _id = req.params.id;
     logging.info(`Incoming read for blog with id ${_id}`);
 
-    Blog.findById(_id)
+    BlogModel.findOneAndUpdate(
+      {
+        _id: _id,
+      },
+      {
+        $inc: { viewsCount: 1 },
+      },
+      {
+        returnDocument: "after",
+      })
         .populate('author')
         .exec()
         .then((blog) => {
@@ -61,7 +70,7 @@ const read = (req: Request, res: Response, next: NextFunction) => {
 const readAll = (req: Request, res: Response, next: NextFunction) => {
     logging.info('Returning all blogs ');
 
-    Blog.find()
+    BlogModel.find()
         .populate('author')
         .exec()
         .then((blogs) => {
@@ -79,10 +88,35 @@ const readAll = (req: Request, res: Response, next: NextFunction) => {
         });
 };
 
+const readLastTags = (req: Request, res: Response, next: NextFunction) => {
+    logging.info('Returning last 5 tags ');
+
+      BlogModel.find()
+      .limit(5)
+      .exec()
+      .then((blogs) => {
+        const tags = blogs
+        .map((obj) => obj.tags)
+        .flat()
+        .slice(0, 5);
+        return res.status(200).json({
+            count: tags.length,
+            tags: tags
+        });
+    })
+    .catch((error) => {
+        logging.error(error.message);
+
+        return res.status(500).json({
+            message: error.message
+        });
+    });
+};
+
 const query = (req: Request, res: Response, next: NextFunction) => {
     logging.info('Query route called');
 
-    Blog.find(req.body)
+    BlogModel.find(req.body)
         .populate('author')
         .exec()
         .then((blogs) => {
@@ -103,49 +137,36 @@ const query = (req: Request, res: Response, next: NextFunction) => {
 const update = (req: Request, res: Response, next: NextFunction) => {
     logging.info('Update route called');
 
-    const _id = req.params.blogID;
+    const _id = req.params.id;
 
-    Blog.findById(_id)
+    BlogModel.updateOne(
+        {
+            _id: _id
+        },
+        req.body)
         .exec()
-        .then((blog) => {
-            if (blog) {
-                blog.set(req.body);
-                blog.save()
-                    .then((savedBlog) => {
-                        logging.info(`Blog with id ${_id} updated`);
+        .then((savedBlog) => {
+            logging.info(`Blog with id ${_id} updated`);
 
-                        return res.status(201).json({
-                            blog: savedBlog
-                        });
-                    })
-                    .catch((error) => {
-                        logging.error(error.message);
-
-                        return res.status(500).json({
-                            message: error.message
-                        });
-                    });
-            } else {
-                return res.status(401).json({
-                    message: 'NOT FOUND'
+                return res.status(201).json({
+                    blog: savedBlog
                 });
-            }
         })
         .catch((error) => {
-            logging.error(error.message);
+        logging.error(error.message);
 
-            return res.status(500).json({
-                message: error.message
-            });
+        return res.status(500).json({
+            message: error.message
         });
+    });
 };
 
-const deleteBlog = (req: Request, res: Response, next: NextFunction) => {
+const remove = (req: Request, res: Response, next: NextFunction) => {
     logging.warn('Delete route called');
 
-    const _id = req.params.blogID;
+    const _id = req.params.id;
 
-    Blog.findByIdAndDelete(_id)
+    BlogModel.findByIdAndDelete(_id)
         .exec()
         .then(() => {
             return res.status(201).json({
@@ -167,5 +188,6 @@ export default {
     readAll,
     query,
     update,
-    deleteBlog
+    remove,
+    readLastTags
 };
